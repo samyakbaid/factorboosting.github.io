@@ -159,9 +159,20 @@ async function buildUniverseSnapshot(universe, file, names) {
       else if ("monthly_ret" in row) retCol = "monthly_ret";
       else if ("Monthly_Return" in row) retCol = "Monthly_Return";
     }
-    if (!retCol) return;
 
-    const sanitized = sanitizeReturn(row[retCol]);
+    // fallback to calculation if missing or if we just want to avoid unadjusted splits
+    let rawRet = row[retCol];
+    const mcap = Number.parseFloat(row.mktcap || row.eom_mcap || 0);
+    const prev = Number.parseFloat(row.prev_mktcap || row.prev_mcap || row.lagged_mktcap || row.prev_Size || 0);
+    
+    // Always use mcap calculation to avoid unadjusted stock splits in monthly_ret
+    if (prev > 0) {
+      rawRet = (mcap - prev) / prev;
+    } else {
+      rawRet = Number.parseFloat(rawRet) || 0;
+    }
+
+    const sanitized = sanitizeReturn(rawRet);
     if (sanitized.action === "drop") {
       dataQualityStats.dropped++;
       return;
